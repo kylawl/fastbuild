@@ -310,6 +310,25 @@ Variables can be constructed from other variables:
 <div class='code'>.StringA = "hello"
 .StringB = "$StringA$ FASTBuild user!"
 </div>
+<p>
+A <b>$Var$</b> substitution is resolved immediately, when the string literal containing it is
+parsed. A <b>$$Var$$</b> substitution is instead <i>deferred</i>: it is preserved verbatim in
+the string and resolved exactly one expansion round later - when the string containing it is
+itself used in a <b>$...$</b> substitution. This is useful for building up a template string in
+one place and resolving it against different values elsewhere:
+</p>
+<div class='code'>.Now   = 'A'
+.SomeVar = 'MyString-$Now$-$$Later$$' ; stored as: MyString-A-$$Later$$
+.Now   = 'B'                          ; no effect - $Now$ was already resolved
+.Later = 'xyz'
+.Result = 'path/$SomeVar$'            ; -> path/MyString-A-xyz
+</div>
+<p>
+The referenced variable must exist (and be a String, Int or Bool) at the point the deferred
+token is resolved, otherwise an error is emitted. Escaping (<b>^$</b>, <b>^^</b> etc.) is still
+performed on the first pass. Each <b>$...$</b> use peels exactly one deferred layer, so a value
+that itself contains <b>$$Var$$</b> requires a further substitution round to fully resolve.
+</p>
 </div>
 
     <div class='newsitemheader' id='scoping'>

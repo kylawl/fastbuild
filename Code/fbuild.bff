@@ -382,7 +382,7 @@ Settings
                                     .X64ClangASanConfig_Linux, .X64ClangMSanConfig_Linux, .X64ClangTSanConfig_Linux }
 #endif
 #if __OSX__
-    .BuildConfigs               = { .X64DebugConfig_OSX, .X64ProfileConfig_OSX, .X64ReleaseConfig_OSX }
+    .BuildConfigs               = {}//{ .X64DebugConfig_OSX, .X64ProfileConfig_OSX, .X64ReleaseConfig_OSX }
     #if CLANG_SUPPORTS_ARMOSX
                                 + { .ARM64DebugConfig_OSX, .ARM64ProfileConfig_OSX, .ARM64ReleaseConfig_OSX }
     #endif

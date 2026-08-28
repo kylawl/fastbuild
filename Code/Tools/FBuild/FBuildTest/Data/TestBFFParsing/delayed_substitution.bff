@@ -1,0 +1,67 @@
+// Delayed (deferred) string substitution: $$Var$$
+//
+// $$Var$$ is preserved verbatim on the pass that parses its literal, and is
+// resolved exactly one expansion round later - when the string containing it is
+// itself spliced into another string via a $...$ substitution.
+//------------------------------------------------------------------------------
+
+// --- Basic: $$Later$$ preserved at declaration, $Now$ resolved immediately ---
+.Now = 'A'
+.SomeVar = 'MyString-$Now$-$$Later$$'
+.Now = 'B'                          // no effect - $Now$ was already resolved
+.Later = 'xyz'
+Print( 'T1=[$SomeVar$]' )           // T1=[MyString-A-xyz]
+
+// --- One round per splice: each $...$ use peels exactly one layer ---
+.Chained = '$$Inner$$'
+.Inner = 'via-$$Deepest$$'
+.Deepest = 'end'
+.Round1 = 'a-$Chained$'             // stored value: a-via-$$Deepest$$
+Print( .Round1 )                    // Round1 = 'a-via-$$Deepest$$'
+.Round2 = 'b-$Round1$'              // splicing Round1 peels the next layer
+Print( 'T3=[$Round2$]' )            // T3=[b-a-via-end]
+
+// --- Adjacency regression: $A$$B$ is still two separate substitutions ---
+.A = 'a'
+.B = 'b'
+Print( 'T4=[$A$$B$]' )              // T4=[ab]
+
+// --- Propagation through a plain variable-to-variable copy ---
+.Src = 'p/$$Leaf$$'
+.Copy = .Src
+.Leaf = 'q'
+Print( 'T5=[$Copy$]' )              // T5=[p/q]
+
+// --- Escapes still processed on the first pass ---
+.Esc = '^$literal-$$Real$$'
+.Real = 'R'
+Print( 'T6=[$Esc$]' )               // T6=[$literal-R]
+
+// --- Non-string variable types ---
+.IntVal = 7
+.BoolVal = true
+.Typed = '$$IntVal$$ $$BoolVal$$'
+Print( 'T7=[$Typed$]' )             // T7=[7 true]
+
+// --- Deferred token inside an array element, resolved in a ForEach body ---
+.Files = { 'one-$$Sfx$$', 'two-$$Sfx$$' }
+.Sfx = 'X'
+ForEach( .File in .Files )
+{
+    Print( 'T8=[$File$]' )          // T8=[one-X] , T8=[two-X]
+}
+
+// --- Deferred token inside a struct member ---
+.Conf =
+[
+    .Opt = 'flag-$$Mode$$'
+]
+.Mode = 'rel'
+Using( .Conf )
+Print( 'T9=[$Opt$]' )               // T9=[flag-rel]
+
+// --- Concatenation: deferred token survives '+' and resolves later ---
+.Cat = 'x'
+       + '-$$Tail$$'
+.Tail = 'y'
+Print( 'T10=[$Cat$]' )              // T10=[x-y]

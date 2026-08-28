@@ -73,6 +73,45 @@ TEST_CASE( TestBFFParsing, String_Unterminated )
 }
 
 //------------------------------------------------------------------------------
+TEST_CASE( TestBFFParsing, DelayedSubstitution )
+{
+    Parse( "Tools/FBuild/FBuildTest/Data/TestBFFParsing/delayed_substitution.bff" );
+
+    TEST_ASSERT( GetRecordedOutput().Find( "T1=[MyString-A-xyz]" ) );
+    TEST_ASSERT( GetRecordedOutput().Find( "'a-via-$$Deepest$$'" ) ); // one layer peeled per splice
+    TEST_ASSERT( GetRecordedOutput().Find( "T3=[b-a-via-end]" ) );
+    TEST_ASSERT( GetRecordedOutput().Find( "T4=[ab]" ) );
+    TEST_ASSERT( GetRecordedOutput().Find( "T5=[p/q]" ) );
+    TEST_ASSERT( GetRecordedOutput().Find( "T6=[$literal-R]" ) );
+    TEST_ASSERT( GetRecordedOutput().Find( "T7=[7 true]" ) );
+    TEST_ASSERT( GetRecordedOutput().Find( "T8=[one-X]" ) );
+    TEST_ASSERT( GetRecordedOutput().Find( "T8=[two-X]" ) );
+    TEST_ASSERT( GetRecordedOutput().Find( "T9=[flag-rel]" ) );
+    TEST_ASSERT( GetRecordedOutput().Find( "T10=[x-y]" ) );
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( TestBFFParsing, DelayedSubstitution_Errors )
+{
+    // Unknown variable when the deferred token is finally resolved
+    TEST_PARSE_FAIL( ".A = '$$Missing$$'\n"
+                     ".B = 'x-$A$'\n",
+                     "Error #1009" );
+
+    // Non-scalar variable referenced by a deferred token
+    TEST_PARSE_FAIL( ".Arr = { 'a', 'b' }\n"
+                     ".A = '$$Arr$$'\n"
+                     ".B = 'x-$A$'\n",
+                     "Error #1029" );
+
+    // Unterminated deferred token
+    TEST_PARSE_FAIL( ".A = '$$Unterminated'\n", "Error #1028" );
+
+    // Empty deferred token name
+    TEST_PARSE_FAIL( ".A = '$$$$'\n", "Error #1028" );
+}
+
+//------------------------------------------------------------------------------
 TEST_CASE( TestBFFParsing, Arrays )
 {
     Parse( "Tools/FBuild/FBuildTest/Data/TestBFFParsing/arrays.bff" );
