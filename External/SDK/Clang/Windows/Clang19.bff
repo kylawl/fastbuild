@@ -34,8 +34,8 @@
                 Print( '----------------------------------------------------------------------' )
                 Print( '- Unable to auto-detect Clang - please specify installation manually -' )
                 Print( '----------------------------------------------------------------------' )
-                .Clang19_BasePath   = .Set_Path_Here    // <-- Set path here
-                .Clang19_Version    = .Set_Version_Here // <-- Set version here
+                .Clang19_BasePath   = 'C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/LLVM/x64'    // <-- Set path here
+                .Clang19_Version    = '19.x.x' // <-- Set version here
             #endif
         #endif
     #endif

@@ -740,7 +740,7 @@ TEST_CASE( TestObject, OwnerObjectList )
             TEST_ASSERT( fBuild.Initialize( database ) );
             TEST_ASSERT( fBuild.Build( "OwnerObjectList" ) );
             TEST_ASSERT( fBuild.SaveDependencyGraph( database ) );
-            const uint32_t expectedBuild = edit.m_ShouldCauseRebuild ? 1 : 0;
+            const uint32_t expectedBuild = edit.m_ShouldCauseRebuild ? 1u : 0u;
             CheckStatsNode( fBuild.GetStats(), 1, expectedBuild, Node::OBJECT_NODE );
         }
     }
