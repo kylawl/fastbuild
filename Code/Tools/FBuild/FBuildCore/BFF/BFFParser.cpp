@@ -1589,6 +1589,83 @@ bool BFFParser::StoreVariableToVariable( const AString & dstName, const BFFToken
     return false;
 }
 
+// FindDeferredSubstitutionEnd (Helper)
+//------------------------------------------------------------------------------
+// Given 'nameStart' pointing just past the opening "$$" of a $$Name$$ deferred
+// substitution token, return the position of the closing "$$" (Name must be
+// non-empty), or nullptr if there is no valid closing "$$".
+static const char * FindDeferredSubstitutionEnd( const char * nameStart, const char * end )
+{
+    for ( const char * pos = nameStart; ( pos + 1 ) < end; ++pos )
+    {
+        if ( ( pos[ 0 ] == '$' ) && ( pos[ 1 ] == '$' ) )
+        {
+            return ( pos > nameStart ) ? pos : nullptr; // reject empty name
+        }
+    }
+    return nullptr;
+}
+
+// ResolveDeferredSubstitutions (Helper)
+//------------------------------------------------------------------------------
+// When a string value is spliced into another string via a $...$ substitution,
+// resolve any $$Name$$ deferred-substitution tokens it carries (one level - the
+// resolved value is appended as-is). A literal single $...$ (only reachable via
+// ^$ escaping) and every other character are copied through verbatim.
+static bool ResolveDeferredSubstitutions( const BFFToken * inputToken,
+                                          const AString & value,
+                                          AString & output )
+{
+    const char * src = value.Get();
+    const char * const end = value.GetEnd();
+
+    while ( src < end )
+    {
+        // Not the start of a $$Name$$ token - copy through verbatim
+        if ( ( src[ 0 ] != '$' ) || ( ( src + 1 ) >= end ) || ( src[ 1 ] != '$' ) )
+        {
+            output += *src++;
+            continue;
+        }
+
+        const char * const endName = FindDeferredSubstitutionEnd( src + 2, end );
+        if ( endName == nullptr )
+        {
+            Error::Error_1028_MissingVariableSubstitutionEnd( inputToken ); // TODO: Improve error positioning
+            return false;
+        }
+
+        AStackString<BFFParser::kMaxVariableNameLength> varName( src + 2, endName );
+        const BFFVariable * var = BFFStackFrame::GetVarAny( varName );
+        if ( var == nullptr )
+        {
+            Error::Error_1009_UnknownVariable( inputToken, nullptr, varName ); // TODO: Improve error positioning
+            return false;
+        }
+        if ( var->IsBool() == true )
+        {
+            output += ( ( var->GetBool() ) ? BFF_KEYWORD_TRUE : BFF_KEYWORD_FALSE );
+        }
+        else if ( var->IsInt() == true )
+        {
+            output.AppendFormat( "%i", var->GetInt() );
+        }
+        else if ( var->IsString() == true )
+        {
+            output += var->GetString();
+        }
+        else
+        {
+            Error::Error_1029_VariableForSubstitutionIsNotAString( inputToken, varName, var->GetType() ); // TODO: Improve error positioning
+            return false;
+        }
+
+        src = endName + 2; // skip closing $$
+    }
+
+    return true;
+}
+
 // PerformVariableSubstitutions
 //------------------------------------------------------------------------------
 /*static*/ bool BFFParser::PerformVariableSubstitutions( const BFFToken * inputToken,
@@ -1623,6 +1700,24 @@ bool BFFParser::StoreVariableToVariable( const AString & dstName, const BFFToken
             case '$':
             {
                 src++; // skip opening $
+
+                // $$Name$$ - deferred substitution. Preserve it verbatim here so
+                // that it is resolved one expansion round later, when this string
+                // is itself spliced into another string via a $...$ substitution.
+                if ( ( src < end ) && ( *src == '$' ) )
+                {
+                    const char * const endName = FindDeferredSubstitutionEnd( src + 1, end );
+                    if ( endName == nullptr )
+                    {
+                        Error::Error_1028_MissingVariableSubstitutionEnd( inputToken ); // TODO: Improve error positioning
+                        return false;
+                    }
+                    output += "$$";
+                    output.Append( src + 1, endName );
+                    output += "$$";
+                    src = endName + 1; // leave src on the 2nd '$' of the closing '$$'; trailing src++ steps past it
+                    break;
+                }
 
                 // find matching $
                 const char * startName( src );
@@ -1659,7 +1754,11 @@ bool BFFParser::StoreVariableToVariable( const AString & dstName, const BFFToken
                 }
                 else if ( var->IsString() == true )
                 {
-                    output += var->GetString();
+                    // Resolve any deferred $$Name$$ tokens carried in the value
+                    if ( ResolveDeferredSubstitutions( inputToken, var->GetString(), output ) == false )
+                    {
+                        return false;
+                    }
                 }
                 else
                 {
